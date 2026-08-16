@@ -1,0 +1,99 @@
+/* ═══════════════════════════════════════════
+   萌宠之家 — 暖色宠物主题全局样式
+   ═══════════════════════════════════════════ */
+@import url('https://fonts.googleapis.com/css2?family=Nunito:wght@400;500;600;700;800&display=swap');
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+html, body, #app {
+  height: 100%;
+}
+
+body {
+  font-family: 'Nunito', -apple-system, 'Microsoft YaHei', 'PingFang SC', sans-serif;
+  background: #F7F3EF;
+  color: #3D322A;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* ── 暖色滚动条 ── */
+::-webkit-scrollbar {
+  width: 5px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: #D4C4B0;
+  border-radius: 10px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #B8A898;
+}
+
+/* ── Element Plus 暖色覆盖 ── */
+.el-button--primary {
+  --el-button-bg-color: #C25D3F !important;
+  --el-button-border-color: #C25D3F !important;
+  --el-button-hover-bg-color: #A84E33 !important;
+  --el-button-hover-border-color: #A84E33 !important;
+  --el-button-active-bg-color: #8F4229 !important;
+  --el-button-active-border-color: #8F4229 !important;
+  border-radius: 10px !important;
+  font-weight: 600 !important;
+}
+
+.el-button--danger {
+  border-radius: 10px !important;
+}
+
+.el-button--default {
+  border-radius: 10px !important;
+}
+
+.el-button:not(.el-button--primary):not(.el-button--danger) {
+  border-radius: 10px !important;
+}
+
+.el-input__wrapper {
+  border-radius: 10px !important;
+  box-shadow: 0 0 0 1px #E8DDD0 inset !important;
+}
+
+.el-input__wrapper:hover {
+  box-shadow: 0 0 0 1px #D4C4B0 inset !important;
+}
+
+.el-input__wrapper.is-focus {
+  box-shadow: 0 0 0 1.5px #E07A5F inset !important;
+}
+
+.el-dialog {
+  border-radius: 16px !important;
+}
+
+.el-table {
+  --el-table-border-color: #F0E8DE;
+  --el-table-header-bg-color: #FAF6F1;
+  --el-table-row-hover-bg-color: #FDF9F5;
+  border-radius: 12px !important;
+  overflow: hidden;
+}
+
+.el-switch.is-checked .el-switch__core {
+  border-color: #E07A5F !important;
+  background-color: #E07A5F !important;
+}
+
+.el-message-box {
+  border-radius: 16px !important;
+}
+
+::selection {
+  background: rgba(224, 122, 95, 0.2);
+}
