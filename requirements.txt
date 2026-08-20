@@ -36,3 +36,8 @@ langchain-mcp-adapters
 # 官方桥接：把 MCP server 工具转成 LangChain 工具（mcp_service.py 用）
 mcp-server-fetch
 # 本地网页抓取 MCP server（fetch 工具，Docker 里也要有它）
+duckduckgo-mcp-server[browser]
+# DuckDuckGo 搜索 MCP server（search / fetch_content 工具）
+# [browser] 附加依赖：启用 curl_cffi 模拟 Chrome TLS 指纹，规避 DDG 反爬虫拦截
+curl-cffi>=0.7.0
+# 模拟 Chrome TLS 指纹（duckduckgo-mcp-server[browser] 的底层依赖，显式声明保证版本自带）

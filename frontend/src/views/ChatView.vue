@@ -139,9 +139,9 @@ async function confirmRename() {
           </div>
         </div>
 
-        <MessageBubble v-for="(m, i) in chat.messages" :key="i" :message="m" />
+        <MessageBubble v-for="(m, i) in chat.messages" :key="i" :message="m" :is-streaming="chat.streaming && i === chat.messages.length - 1 && m.role === 'assistant'" />
 
-        <!-- 流式加载指示器 -->
+        <!-- 流式加载指示器（仅在 AI 还没开始输出内容时显示） -->
         <div v-if="chat.streaming && chat.messages.length > 0 && chat.messages[chat.messages.length - 1]?.content === ''" class="thinking">
           <div class="thinking-avatar">🐾</div>
           <div class="thinking-dots">

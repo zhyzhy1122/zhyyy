@@ -15,7 +15,14 @@ services:
     # 容器名字（在 Docker Desktop 里好认）
     environment:
       - REDIS_HOST=pet_redis
-    # Redis 地址环境变量：容器里用服务名 pet_redis 访问（同一网络内）；本地跑默认 127.0.0.1
+      # Redis 地址环境变量：容器里用服务名 pet_redis 访问（同一网络内）；本地跑默认 127.0.0.1
+      - HTTP_PROXY=http://host.docker.internal:47890
+      - HTTPS_PROXY=http://host.docker.internal:47890
+      - NO_PROXY=api.deepseek.com,api.siliconflow.cn,pet_redis,localhost,127.0.0.1,10.0.0.0/8,172.16.0.0/12,192.168.0.0/16
+      # ★ 代理配置：容器内网络走本机 Clash 代理（47890 端口）
+      # host.docker.internal 是 Docker 特殊 DNS，指向宿主机（本机）
+      # NO_PROXY 排除 LLM API 域名和内网地址，让它们直连不走代理
+      # 只有 DuckDuckGo 等被墙网站走代理
     ports:
     # 端口映射：电脑端口:容器端口
       - "8000:8000"

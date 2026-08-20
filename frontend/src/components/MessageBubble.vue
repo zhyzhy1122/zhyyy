@@ -6,7 +6,10 @@ import DOMPurify from 'dompurify'
 import type { ChatMessage } from '@/api/chat'
 import { submitFeedback } from '@/api/chat'
 
-const props = defineProps<{ message: ChatMessage }>()
+const props = defineProps<{ 
+  message: ChatMessage
+  isStreaming?: boolean  // 是否正在流式输出（用于显示跳动点）
+}>()
 
 // Markdown 渲染器（关闭原生 html，防止注入）
 const md = new MarkdownIt({ html: false, breaks: true })
@@ -31,7 +34,9 @@ async function feedback(rating: 1 | -1) {
     <!-- 气泡 -->
     <div class="bubble" :class="message.role">
       <!-- AI 消息渲染 Markdown，用户消息纯文本 -->
-      <div v-if="message.role === 'assistant'" class="md-body" v-html="html" />
+      <div v-if="message.role === 'assistant'" class="md-body" :class="{ streaming: isStreaming }">
+        <div v-html="html" />
+      </div>
       <div v-else class="plain">{{ message.content }}</div>
 
       <!-- 反馈按钮（仅 AI 消息且有 id） -->
@@ -234,5 +239,31 @@ async function feedback(rating: 1 | -1) {
   opacity: 1;
   background: rgba(0, 0, 0, 0.04);
   color: var(--coral);
+}
+
+/* ── 流式输出跳动点（显示在最后一个段落末尾） ── */
+.md-body.streaming > :last-child::after {
+  content: '';
+  display: inline-block;
+  width: 18px;
+  height: 6px;
+  margin-left: 4px;
+  vertical-align: middle;
+  background-image: radial-gradient(circle, var(--coral) 2px, transparent 2px);
+  background-size: 6px 6px;
+  background-position: 0 0, 6px 0, 12px 0;
+  background-repeat: no-repeat;
+  animation: dotPulse 1.4s ease-in-out infinite;
+}
+
+@keyframes dotPulse {
+  0%, 80%, 100% {
+    transform: scale(0.6);
+    opacity: 0.4;
+  }
+  40% {
+    transform: scale(1);
+    opacity: 1;
+  }
 }
 </style>

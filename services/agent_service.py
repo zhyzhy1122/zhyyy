@@ -293,6 +293,6 @@ if __name__ == "__main__":
         question = input("请输入你的问题或者输入quit离开：")
         if question == "quit":
             break
-        print(ask_agent(question))
+        print(ask_agent_stream(question))
 
 # print("ALL_TOOLS:", [t.name for t in ALL_TOOLS])

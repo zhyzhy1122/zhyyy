@@ -10,8 +10,9 @@ COPY requirements.txt .
 # 先复制依赖清单（单独一步）
 # 这样以后改代码重新构建时，依赖安装有缓存，不用重新下载所有包
 
+# 改动前
 RUN pip install -r requirements.txt -i https://pypi.tuna.tsinghua.edu.cn/simple
-# 安装依赖（-i 用清华镜像，国内下载快；如果你网络好可以去掉 -i 部分）
+# 安装依赖（默认官方 PyPI：加速器开启时经代理可达；若改用清华镜像 pypi.tuna 会 SSL 断连报 SSLEOFError）
 # RUN = 构建时执行一次，装好的包固化进镜像层
 
 COPY main.py .
