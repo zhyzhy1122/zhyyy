@@ -1,9 +1,8 @@
 <script setup lang="ts">
-// 消息气泡：用户右、AI 左；AI 消息渲染 Markdown + 来源卡片 + 点赞/点踩
+// 消息气泡：用户右、AI 左；AI 消息渲染 Markdown + 点赞/点踩
 import { computed } from 'vue'
 import MarkdownIt from 'markdown-it'
 import DOMPurify from 'dompurify'
-import SourceCard from './SourceCard.vue'
 import type { ChatMessage } from '@/api/chat'
 import { submitFeedback } from '@/api/chat'
 
@@ -34,9 +33,6 @@ async function feedback(rating: 1 | -1) {
       <!-- AI 消息渲染 Markdown，用户消息纯文本 -->
       <div v-if="message.role === 'assistant'" class="md-body" v-html="html" />
       <div v-else class="plain">{{ message.content }}</div>
-
-      <!-- 来源卡片（仅 AI 消息） -->
-      <SourceCard v-if="message.role === 'assistant'" :sources="message.sources ?? []" />
 
       <!-- 反馈按钮（仅 AI 消息且有 id） -->
       <div v-if="message.role === 'assistant' && message.id" class="feedback">

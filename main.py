@@ -61,35 +61,32 @@ app.add_middleware(
 def root():
     return {"message": "萌宠之家 RAG 系统已启动"}
 
-@app.post("/ask")
-def ask_question(question: str,session_id:str = "default"):
-    """
-    问答接口：传入问题，返回回答
-    """
-    try:
-        answer = ask_agent(question,session_id)
-        return {"question": question, "answer": answer}
-    except Exception as e:
-        return {"error": str(e)}
+# @app.post("/ask")
+# def ask_question(question: str,session_id:str = "default"):
+#     """
+#     问答接口：传入问题，返回回答
+#     """
+#     try:
+#         answer = ask_agent(question,session_id)
+#         return {"question": question, "answer": answer}
+#     except Exception as e:
+#         return {"error": str(e)}
 @app.post("/ask/stream")
-def ask_question_stream(question: str, session_id: str = "default", show_sources: bool = True):
-    # 路由：新增参数 show_sources（是否输出参考资料，默认 True）；前端开关通过 URL 传
+def ask_question_stream(question: str, session_id: str = "default"):
+    # 路由：流式问答接口
+    # 参数：question（问题，必填）、session_id（会话ID，可缺省）
+    # 说明：原 show_sources 参数及其 source 事件逻辑已移除——
+    #       业务层(ask_agent_stream)现在只产出字符串文本块，不产出字典，故统一按文本块包装
     def stream_generator():
-        # 定义 SSE 生成器：把业务层产出包装成 SSE 格式
+        # 定义 SSE 生成器：把业务层产出的每个文本块包装成 SSE 的 data 行
         try:
-            # 捕获异常，发错误事件
-            for event in ask_agent_stream(question, session_id, show_sources):
-                # 遍历事件流：现在有两种产出——字符串文本块 / source 字典
-                if isinstance(event, dict):
-                    # 是字典 → source 事件（或以后别的结构化事件）
-                    data = json.dumps(event, ensure_ascii=False)
-                    # 原样转 JSON 发出去（含 type、sources 字段）
-                else:
-                    # 是字符串 → 普通文本块
-                    data = json.dumps({"content": event}, ensure_ascii=False)
-                    # 包成 {"content": ...} 格式（前端解析器已兼容）
+            # 捕获异常，保证断开时能发错误事件、结尾能发 [DONE]
+            for event in ask_agent_stream(question, session_id):
+                # 遍历事件流：ask_agent_stream 逐个 yield 字符串文本块
+                data = json.dumps({"content": event}, ensure_ascii=False)
+                # 统一包成 {"content": ...} 格式（前端解析器已兼容）
                 yield f"data: {data}\n\n"
-                # 按 SSE 协议输出：data: + JSON + 空行
+                # 按 SSE 协议输出：data：前缀 + JSON + 空行
         except Exception as e:
             # 出错时
             error_data = json.dumps({"error": str(e)}, ensure_ascii=False)

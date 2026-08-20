@@ -1,10 +1,10 @@
 import json
 from langchain_core.documents import Document
 from langchain_text_splitters import RecursiveCharacterTextSplitter
+import os
 
-
-KB_PATH = r"D:\python\宠物店rag项目（后续langchain加langgraph）\knowledge_base\pet_shop_docs.jsonl"
-
+BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+KB_PATH = os.path.join(BASE_DIR, "knowledge_base", "pet_shop_docs.jsonl")
 def load_document(path):
     docs = []
     with open(path, encoding="utf-8") as f:

@@ -6,6 +6,8 @@ import json
 from langchain_core.messages import  HumanMessage,AIMessage
 from services.database import save_message, get_chat_history, init_db
 import os
+from langchain_core.tools import tool
+from pydantic import  BaseModel,Field
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 CONFIG_PATH = os.path.join(BASE_DIR, "配置文件", "config.json")
 init_db()
@@ -18,7 +20,8 @@ RAG_PROMPT = ChatPromptTemplate.from_messages([
     ("human", "参考资料：\n{context}\n\n用户问题：{question}"),
 
 ])
-
+class RAGArgs(BaseModel):
+    question:str = Field(description = "要检索文档中的知识库中的问题")
 
 def format_docs(docs):
     return "\n\n".join([doc.page_content for doc in docs])
@@ -108,6 +111,25 @@ def ask(question: str, session_id: str = "default"):
     # 5. 保存 AI 回答
     save_message(session_id, "assistant", answer)
 
+    return answer
+
+
+@tool
+def query_knowledge_base(question:str)->str:
+    """根据用户问题检索知识库并返回生成的答案。
+    使用场景：客户询问知识库服务内容、价格信息、维护知识等在知识库中记载的内容。
+    服务名请使用店内的规范名称（猫咪普通洗护、猫咪深度洗护、药浴、剪指甲、体内驱虫）。"""
+
+    docs_with_scores = get_docs_with_scores(question)
+    docs = [doc for doc, _ in docs_with_scores]
+    rag_chain = get_rag_chain()
+    answer = rag_chain.invoke(
+        {
+            "question":question,
+            "chat_history":[],
+            "docs":docs,
+        }
+    )
     return answer
 
 if __name__ == '__main__':

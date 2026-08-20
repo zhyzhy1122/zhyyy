@@ -1,0 +1,38 @@
+fastapi
+# Web 框架：main.py 里 from fastapi import FastAPI 用到的
+uvicorn
+# 服务器：启动命令 uvicorn main:app 用到的
+langchain
+# LangChain 主包：LCEL 链、提示词模板、文档加载
+langchain-community
+# LangChain 社区集成（很多加载器/工具在这里）
+langchain-chroma
+# Chroma 向量数据库的 LangChain 封装（vectorstore_service 用）
+langchain-deepseek
+# DeepSeek 大模型适配（ChatDeepSeek，rag/agent 服务用）
+langchain-siliconflow
+# SiliconFlow 适配（SiliconFlowEmbeddings，embedding 服务用）
+langgraph
+# 智能体编排框架（StateGraph，agent_service 用）
+chromadb
+# 向量数据库本体
+pypdf
+# PDF 解析（file_parser 用）
+python-docx
+# Word 解析（file_parser 用）
+python-multipart
+# FastAPI 文件上传表单解析（main.py 上传接口用）
+requests
+# HTTP 请求库（测试脚本用）
+redis
+# Redis 客户端：redis_service.py 里 import redis 用到的（短期记忆缓存）
+rank_bm25
+# BM25 检索算法（BM25Retriever 底层依赖，混合检索用）
+jieba
+# 中文分词器（BM25 混合检索 preprocess_func 用；解决中文分词退化）
+mcp
+# MCP 协议 Python SDK（langchain_mcp_adapters 底层依赖）
+langchain-mcp-adapters
+# 官方桥接：把 MCP server 工具转成 LangChain 工具（mcp_service.py 用）
+mcp-server-fetch
+# 本地网页抓取 MCP server（fetch 工具，Docker 里也要有它）

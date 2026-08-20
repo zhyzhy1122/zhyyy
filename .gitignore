@@ -45,3 +45,7 @@ Thumbs.db
 *.temp
 *.bak
 *.backup
+
+# 个人 react 知识点手册（与 demo 无关，不上传）
+React知识点手册.docx
+._build_react_docx/

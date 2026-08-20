@@ -82,13 +82,6 @@ async function confirmRename() {
       <div class="sidebar-brand">
         <span class="brand-icon">🐾</span>
         <span class="brand-text">萌宠之家</span>
-        <el-tooltip content="显示参考资料" placement="bottom">
-          <el-switch
-            v-model="chat.showSources"
-            size="small"
-            @change="chat.setShowSources(chat.showSources)"
-          />
-        </el-tooltip>
       </div>
 
       <button class="new-chat-btn" @click="chat.newSession()">

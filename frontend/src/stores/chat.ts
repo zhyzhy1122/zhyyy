@@ -10,7 +10,6 @@ import {
   pinSession as pinSessionApi,
   type ChatMessage,
   type SessionItem,
-  type SourceItem,
 } from '@/api/chat'
 
 export const useChatStore = defineStore('chat', () => {
@@ -22,18 +21,10 @@ export const useChatStore = defineStore('chat', () => {
   const messages = ref<ChatMessage[]>([])
   // 是否正在生成（用于禁用输入框/按钮）
   const streaming = ref(false)
-  // 是否显示参考资料（前端设置开关，localStorage 持久化）
-  const showSources = ref(localStorage.getItem('show_sources') !== 'false')
 
   // 保存会话 ID 到 localStorage
   function saveSessionId() {
     localStorage.setItem('session_id', sessionId.value)
-  }
-
-  // 设置开关并持久化
-  function setShowSources(v: boolean) {
-    showSources.value = v
-    localStorage.setItem('show_sources', String(v))
   }
 
   // 加载会话列表
@@ -81,7 +72,7 @@ export const useChatStore = defineStore('chat', () => {
     // 用户消息立即显示
     messages.value.push({ role: 'user', content: question })
     // 占位 AI 消息
-    messages.value.push({ role: 'assistant', content: '', sources: [] })
+    messages.value.push({ role: 'assistant', content: '' })
     // ★ 关键：从数组里取引用（push 后数组里是 reactive 代理）
     // 直接修改代理的属性才能触发 Vue 更新；如果修改原始对象，界面不会刷新
     // ! 非空断言：刚 push 过，最后一项必然存在
@@ -93,12 +84,8 @@ export const useChatStore = defineStore('chat', () => {
       await streamChat(
         question,
         sessionId.value,
-        showSources.value,
         (t) => {
           aiMsg.content += t // 通过代理修改 → 触发流式渲染
-        },
-        (s: SourceItem[]) => {
-          aiMsg.sources = s // 保存来源事件
         },
         controller.signal,
       )
@@ -119,7 +106,6 @@ export const useChatStore = defineStore('chat', () => {
     sessionId,
     messages,
     streaming,
-    showSources,
     loadSessions,
     loadSession,
     newSession,
@@ -127,6 +113,5 @@ export const useChatStore = defineStore('chat', () => {
     renameSession,
     togglePin,
     send,
-    setShowSources,
   }
 })

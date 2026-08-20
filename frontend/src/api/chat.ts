@@ -1,17 +1,10 @@
-// 后端接口封装（契约 v1.3）
+// 后端接口封装（契约 v1.4）
 // 注意：API key 全部在后端 config.json，前端不接触任何密钥
-
-export interface SourceItem {
-  doc_id: number
-  title: string
-  snippet: string
-}
 
 export interface ChatMessage {
   id?: number
   role: 'user' | 'assistant'
   content: string
-  sources?: SourceItem[]
   created_at?: string
 }
 
@@ -24,16 +17,14 @@ export interface SessionItem {
 }
 
 // 流式问答：fetch + ReadableStream 解析 SSE
-// onToken：每收到一个文本块回调；onSources：收到来源事件回调
+// onToken：每收到一个文本块回调
 export async function streamChat(
   question: string,
   sessionId: string,
-  showSources: boolean,
   onToken: (t: string) => void,
-  onSources: (s: SourceItem[]) => void,
   signal: AbortSignal,
 ): Promise<void> {
-  const url = `/ask/stream?question=${encodeURIComponent(question)}&session_id=${encodeURIComponent(sessionId)}&show_sources=${showSources}`
+  const url = `/ask/stream?question=${encodeURIComponent(question)}&session_id=${encodeURIComponent(sessionId)}`
   const resp = await fetch(url, { method: 'POST', signal })
   if (!resp.ok || !resp.body) throw new Error('流式请求失败')
 
@@ -57,10 +48,7 @@ export async function streamChat(
       if (data === '[DONE]') return // 结束标记
       try {
         const parsed = JSON.parse(data)
-        if (parsed.type === 'source' && Array.isArray(parsed.sources)) {
-          // 来源事件：存起来，不要追加进正文
-          onSources(parsed.sources)
-        } else if (typeof parsed.content === 'string') {
+        if (typeof parsed.content === 'string') {
           // 普通文本块
           onToken(parsed.content)
         }

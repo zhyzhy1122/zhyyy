@@ -223,6 +223,8 @@ def delete_session(session_id: str):
     cursor.execute("DELETE FROM session_meta WHERE session_id = ?", (session_id,))
     conn.commit()
     conn.close()
+    from services.redis_service import clear_short_memory
+    clear_short_memory(session_id)
 
 
 def rename_session(session_id: str, title: str):

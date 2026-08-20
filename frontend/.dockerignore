@@ -1,0 +1,8 @@
+node_modules
+# 本地依赖（Windows 版，进 Linux 容器没用，还会覆盖 npm ci 结果）
+dist
+# 本地构建产物（容器里自己构建）
+.vite
+# Vite 缓存
+*.log
+# 日志文件
