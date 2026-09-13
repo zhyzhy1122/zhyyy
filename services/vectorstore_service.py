@@ -85,8 +85,6 @@ def get_docs_with_scores(question: str, k: int = 3):
     # 定义函数：入参 question（问题文本）、k（返回几条，默认3）；返回 [(文档, 相似度分数), ...]
     """检索并返回带相似度分数的文档列表 [(Document, score), ...]"""
     # 文档字符串：说明返回格式，调用方靠它知道怎么用
-    vectorstore = get_vectorstore()
-    # 连接向量库（Chroma），复用已有的连接函数
     retriever = get_hybrid_retriever(k = k*2)
     docs = retriever.invoke(question)[:k]
     return [(d,1.0 - i*1e-4)for i ,d in enumerate(docs)]
