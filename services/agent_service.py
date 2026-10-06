@@ -11,7 +11,7 @@ import os
 from services.mcp_service import get_mcp_tools
 from services.redis_service import get_recent_history
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-CONFIG_PATH = os.path.join(BASE_DIR, "配置文件", "config.json")
+CONFIG_PATH = os.path.join(BASE_DIR, "config", "config.json")
 init_db()
 _llm = None
 
@@ -155,7 +155,13 @@ except Exception as _e:
 
 ALL_TOOLS = list(TOOL_MAP.values())
 
-SYSTEM_PROMPT = """你是萌宠之家的AI客服助手，负责回答用户关于宠物店服务、价格、养护知识等问题。
+SYSTEM_PROMPT = """你是萌宠之家的AI客服助手。知识库里除了宠物店的服务、价格、养护知识，
+还有管理员上传的各类文档（PDF/Word/TXT，比如简历、行业报告、学习资料）。
+
+重要：只要你不确定答案，就先调用 query_knowledge_base 去查一查，
+不要因为"这问题看起来不像宠物店业务"就直接拒绝回答。
+只有查完确认没有，才可以说自己答不了。
+
 
 ## 工具使用规则（非常重要，必须严格遵守）
 
@@ -193,7 +199,7 @@ def agent_node(state: AgentState) -> AgentState:
     llm_with_tools = get_llm().bind_tools(ALL_TOOLS)
     # ★ 用 ALL_TOOLS 动态绑定，不写死列表；TOOL_MAP 加工具自动跟着变
     messages = [SystemMessage(content=SYSTEM_PROMPT)] + state["messages"]
-    response = llm_with_tools.invoke(state["messages"])
+    response = llm_with_tools.invoke(messages)
     return {"messages": [response]}
 
 def execute_tools(state: AgentState) -> AgentState:

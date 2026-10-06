@@ -9,7 +9,7 @@ import os
 from langchain_core.tools import tool
 from pydantic import  BaseModel,Field
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-CONFIG_PATH = os.path.join(BASE_DIR, "配置文件", "config.json")
+CONFIG_PATH = os.path.join(BASE_DIR, "config", "config.json")
 init_db()
 _rag_chain = None
 
@@ -118,7 +118,7 @@ def ask(question: str, session_id: str = "default"):
 def query_knowledge_base(question:str)->str:
     """根据用户问题检索知识库并返回生成的答案。
     使用场景：客户询问知识库服务内容、价格信息、维护知识等在知识库中记载的内容。
-    服务名请使用店内的规范名称（猫咪普通洗护、猫咪深度洗护、药浴、剪指甲、体内驱虫）。"""
+    """
 
     docs_with_scores = get_docs_with_scores(question)
     docs = [doc for doc, _ in docs_with_scores]

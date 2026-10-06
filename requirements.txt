@@ -6,6 +6,9 @@ langchain
 # LangChain 主包：LCEL 链、提示词模板、文档加载
 langchain-community
 # LangChain 社区集成（很多加载器/工具在这里）
+langchain-classic
+# 经典检索器与链：EnsembleRetriever 位于 langchain_classic.retrievers
+# （它也被 langchain-community 间接依赖，但代码里直接 import，故显式声明避免上游变更导致中断）
 langchain-chroma
 # Chroma 向量数据库的 LangChain 封装（vectorstore_service 用）
 langchain-deepseek

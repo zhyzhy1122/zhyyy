@@ -1,62 +1,63 @@
-version: "3.8"
-# compose 文件格式版本（写 3.8 兼容性好）
+# 萌宠之家 AI 客服系统 · 一键部署编排
+# 启动： docker compose up -d --build      访问： http://localhost:8080
+#
+# 说明：
+#  - redis 是短期记忆缓存（最近 10 条对话，TTL 3600s）。即使它挂了，后端也会自动降级读 SQLite。
+#  - 容器内访问 DuckDuckGo 需要代理，默认走宿主机 Clash 的 47890 端口。
+#    如果你不用代理，或端口不同，在项目根目录建一个 .env 覆盖即可（compose 会自动读取）：
+#        DOCKER_HTTP_PROXY=
+#        DOCKER_HTTPS_PROXY=
+#    NO_PROXY 里必须保留 api.deepseek.com / api.siliconflow.cn / redis，否则大模型接口会被代理拦掉。
 
 services:
-# 服务列表（每个服务 = 一个容器）
-  backend:
-  # 服务名：backend（以后容器间通信靠这个名字）
-    build:
-    # 构建配置：用哪个 Dockerfile 生成镜像
-      context: .
-      # 构建上下文：当前目录（项目根，Dockerfile 就在这里）
-      dockerfile: Dockerfile
-      # 使用的 Dockerfile 文件名
-    container_name: pet_shop_backend
-    # 容器名字（在 Docker Desktop 里好认）
-    environment:
-      - REDIS_HOST=pet_redis
-      # Redis 地址环境变量：容器里用服务名 pet_redis 访问（同一网络内）；本地跑默认 127.0.0.1
-      - HTTP_PROXY=http://host.docker.internal:47890
-      - HTTPS_PROXY=http://host.docker.internal:47890
-      - NO_PROXY=api.deepseek.com,api.siliconflow.cn,pet_redis,localhost,127.0.0.1,10.0.0.0/8,172.16.0.0/12,192.168.0.0/16
-      # ★ 代理配置：容器内网络走本机 Clash 代理（47890 端口）
-      # host.docker.internal 是 Docker 特殊 DNS，指向宿主机（本机）
-      # NO_PROXY 排除 LLM API 域名和内网地址，让它们直连不走代理
-      # 只有 DuckDuckGo 等被墙网站走代理
-    ports:
-    # 端口映射：电脑端口:容器端口
-      - "8000:8000"
-      # 访问电脑的 localhost:8000 = 访问容器里的 8000
+  redis:
+    image: redis:7-alpine
+    container_name: pet_shop_redis
+    command: ["redis-server", "--appendonly", "yes"]
     volumes:
-    # 数据卷挂载：电脑路径:容器内路径
-      - ./配置文件/config.json:/app/配置文件/config.json
-      # ★ API key 注入：把电脑的 config.json 挂进容器
-      # 好处：改 key 不用重新构建镜像，key 也不进镜像/仓库
-      - ./chroma_db:/app/chroma_db
-      # 向量数据库持久化：容器删了向量数据还在
-      # 否则每次重建容器都要重新向量化所有文档
-      - ./services/chat_history.db:/app/services/chat_history.db
-      # 聊天记录持久化：SQLite 文件映射到电脑，删容器不丢数据
+      - redis_data:/data
     restart: unless-stopped
-    # 容器意外退出自动重启；电脑重启后 Docker 启动也会自动拉起
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+  backend:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: pet_shop_backend
+    environment:
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - HTTP_PROXY=${DOCKER_HTTP_PROXY:-http://host.docker.internal:47890}
+      - HTTPS_PROXY=${DOCKER_HTTPS_PROXY:-http://host.docker.internal:47890}
+      - NO_PROXY=${DOCKER_NO_PROXY:-api.deepseek.com,api.siliconflow.cn,redis,localhost,127.0.0.1,host.docker.internal,10.0.0.0/8,172.16.0.0/12,192.168.0.0/16}
+    ports:
+      - "8000:8000"
+    volumes:
+      # API Key 从宿主机挂载注入，不进镜像、不进仓库
+      - ./config/config.json:/app/config/config.json
+      # 向量库持久化：删容器不丢数据
+      - ./chroma_db:/app/chroma_db
+      # 会话/文档/反馈持久化
+      - ./services/chat_history.db:/app/services/chat_history.db
+    depends_on:
+      redis:
+        condition: service_healthy
+    restart: unless-stopped
 
   frontend:
-  # 前端服务（nginx 托管网页 + 代理 API）
     build:
-    # 构建配置
       context: ./frontend
-      # 构建上下文：frontend 目录（前端 Dockerfile 在这里）
       dockerfile: Dockerfile
-      # 使用的 Dockerfile 文件名
     container_name: pet_shop_frontend
-    # 容器名字（Docker Desktop 里好认）
     ports:
-    # 端口映射：电脑端口:容器端口
       - "8080:80"
-      # 浏览器访问 localhost:8080 = 前端网页
     depends_on:
-    # 依赖关系：先启动后端，前端再启动
       - backend
-      # 依赖 backend 服务（nginx 启动时后端容器已在运行）
     restart: unless-stopped
-    # 意外退出自动重启
+
+volumes:
+  redis_data:

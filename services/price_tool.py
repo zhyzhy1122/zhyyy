@@ -3,7 +3,7 @@ from pathlib import Path
 from langchain_core.tools import tool
 from pydantic import BaseModel
 BASE_DIR = Path(__file__).resolve().parent.parent
-CONFIG_PATH = BASE_DIR/"配置文件"/("config.json")
+CONFIG_PATH = BASE_DIR/"config"/("config.json")
 
 class ServiceItem(BaseModel):
     name:str

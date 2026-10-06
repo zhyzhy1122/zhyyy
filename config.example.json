@@ -1,4 +1,11 @@
 {
   "deepseek_api_key": "your_deepseek_api_key_here",
-  "siliconflow_api_key": "your_siliconflow_api_key_here"
+  "siliconflow_api_key": "your_siliconflow_api_key_here",
+  "price_map": {
+    "猫咪普通洗护": 68,
+    "猫咪深度洗护": 128,
+    "药浴": 45,
+    "剪指甲": 15,
+    "体内驱虫": 30
+  }
 }

@@ -1,6 +1,6 @@
 from langchain_chroma import Chroma
-from 前期代码.step1_load import load_document,convert_to_documents,split_docs,KB_PATH
-from 前期代码.step2_embed import get_embeddings
+from legacy.step1_load import load_document,convert_to_documents,split_docs,KB_PATH
+from legacy.step2_embed import get_embeddings
 def build_vectorstore():
     docs = load_document(KB_PATH)
     lc_docs = convert_to_documents(docs)

@@ -3,7 +3,7 @@ from langchain_siliconflow import SiliconFlowEmbeddings
 
 
 
-CONFIG_PATH = "../配置文件/config.json"  # 项目根目录下的 config.json
+CONFIG_PATH = "../config/config.json"  # 项目根目录下的 config.json
 API_URL = "https://api.siliconflow.cn/v1/embeddings"
 MODEL_NAME = "BAAI/bge-m3"
 
@@ -40,7 +40,7 @@ MODEL_NAME = "BAAI/bge-m3"
 #     return embeddings
 
 def get_embeddings():
-    with open("../配置文件/config.json", encoding="utf-8")as f:
+    with open("../config/config.json", encoding="utf-8")as f:
         config = json.load(f)
         api_key = config["siliconflow_api_key"].strip()
         return SiliconFlowEmbeddings(

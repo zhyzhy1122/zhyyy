@@ -1,19 +1,53 @@
-"""
-检索评测 · 单文件版（评测集已内置，放到项目根目录直接跑）
-用法：把本文件覆盖项目根目录的 run_retrieval_eval.py，然后：
+# -*- coding: utf-8 -*-
+"""检索评测 · 可复现版
+
+为什么要有这个脚本
+------------------
+简历上"Top-3 命中率"这类数字，必须**任何人 clone 下来都能复现**，否则就是不可验证的自述。
+这个脚本做到了这一点：
+
+1. 评测用的向量库**从版本控制内的知识库源文件重建**（`knowledge_base/pet_shop_docs.jsonl`），
+   不读取本地 `chroma_db/`——因为本地向量库会被管理端上传的文档持续污染，
+   用它评测的结果无法复现（同一个脚本两次跑出来的数字会不一样）。
+2. 一次跑完「纯向量 / 纯 BM25 / 混合检索多组权重」，结果全部落盘到
+   `retrieval_eval_result.json`，并且带上评测集规模、知识库规模、时间戳等元信息。
+3. 混合检索权重由此扫描确定，选定值写在 `services/vectorstore_service.py` 的
+   `HYBRID_WEIGHTS` 常量里，两者保持一致。
+
+用法
+----
     python run_retrieval_eval.py
-前提：项目能正常启动（配置文件/config.json 两个 api_key 有效、chroma_db 已构建）
+
+前提：`config/config.json` 里 `siliconflow_api_key` 有效（需要调用 Embedding 服务）。
+评测过程只调用 Embedding 接口，不会调用 LLM，因此不消耗对话额度。
 """
 import json
-from collections import defaultdict
+import os
+import shutil
+import sys
+import tempfile
+from datetime import datetime, timezone
 
-from services.vectorstore_service import get_vectorstore, get_hybrid_retriever, _export_all_chunks
-from langchain_community.retrievers import BM25Retriever
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+sys.path.insert(0, BASE_DIR)
+
 import jieba
+from langchain_chroma import Chroma
+from langchain_community.retrievers import BM25Retriever
 
-K = 3
+from services.document_service import KB_PATH, convert_to_documents, load_document, split_docs
+from services.embedding_service import get_embeddings
+from services.vectorstore_service import build_hybrid_retriever
+
+TOP_K = 3
+# 权重扫描范围：[BM25 权重, 向量权重]
+WEIGHT_CONFIGS = [(0.5, 0.5), (0.4, 0.6), (0.3, 0.7), (0.2, 0.8), (0.1, 0.9)]
+# 最终选定的权重，需与 services/vectorstore_service.py 的 HYBRID_WEIGHTS 一致
+SELECTED_WEIGHTS = (0.3, 0.7)
+OUT_PATH = os.path.join(BASE_DIR, "retrieval_eval_result.json")
 
 # ============ 评测集：30 条，全部基于知识库真实文档标题 ============
+# 说明：`expected_doc` 是人工标注的"正确答案应命中的文档标题"。
 EVAL_SET = [
     {"question": "猫咪普通洗护多少钱？", "expected_doc": "宠物普通洗护服务"},
     {"question": "深度护理和普通洗护有什么区别？", "expected_doc": "宠物深度护理服务"},
@@ -47,84 +81,100 @@ EVAL_SET = [
     {"question": "VIP洗护套餐里都有什么？", "expected_doc": "洗护VIP套餐"},
 ]
 
-# ============ 三种检索器 ============
-_bm25_cache = None
 
-def build_bm25_only(k: int = K):
-    """纯 BM25（jieba 分词），与项目 get_hybrid_retriever 里做法一致"""
-    global _bm25_cache
-    if _bm25_cache is None:
-        _bm25_cache = BM25Retriever.from_documents(
-            _export_all_chunks(),
-            k=k,
-            preprocess_func=lambda t: jieba.lcut(t),
-        )
-    return _bm25_cache
+def build_eval_store(persist_dir: str):
+    """从知识库源文件重建一个临时向量库（评测专用，与本地 chroma_db 隔离）。"""
+    chunks = split_docs(convert_to_documents(load_document(KB_PATH)))
+    store = Chroma.from_documents(
+        documents=chunks,
+        embedding=get_embeddings(),
+        persist_directory=persist_dir,
+        collection_name="pet_shop_eval",
+    )
+    return store, chunks
 
 
-def build_vector_only(k: int = K):
-    """纯向量检索"""
-    return get_vectorstore().as_retriever(search_kwargs={"k": k})
-
-
-def build_hybrid(k: int = K):
-    """混合检索（项目原样）"""
-    return get_hybrid_retriever(k=k)
-
-
-RETRIEVERS = {
-    "vector(纯向量)": build_vector_only,
-    "bm25(纯关键词)": build_bm25_only,
-    "hybrid(混合)":   build_hybrid,
-}
+def evaluate(retriever, k: int = TOP_K):
+    """返回 (命中数, 未命中问题列表)"""
+    hits, misses = 0, []
+    for case in EVAL_SET:
+        docs = retriever.invoke(case["question"])[:k]
+        titles = [str(d.metadata.get("title", "")) for d in docs]
+        if any(case["expected_doc"] in t for t in titles):
+            hits += 1
+        else:
+            misses.append(case["question"])
+    return hits, misses
 
 
 def main():
-    stats = defaultdict(lambda: {"hit": 0, "total": 0, "miss": []})
-    for c in EVAL_SET:
-        expected = c["expected_doc"]
-        for name, build in RETRIEVERS.items():
-            retr = build()
-            docs = retr.invoke(c["question"])[:K]
-            titles = [str(d.metadata.get("title", "")) for d in docs]
-            stats[name]["total"] += 1
-            if any(expected in t for t in titles):
-                stats[name]["hit"] += 1
-            else:
-                stats[name]["miss"].append(c["question"])
+    total = len(EVAL_SET)
+    print(f"评测集：{total} 条 · Top-{TOP_K} 命中率")
+    print(f"知识库：{KB_PATH}")
 
-    print(f"\n===== 检索评测（{len(EVAL_SET)} 条 · Top-{K} 命中率）=====")
-    result = {}
-    for name, s in stats.items():
-        rate = s["hit"] / s["total"] * 100
-        result[name] = {"hit": s["hit"], "total": s["total"], "rate": round(rate, 1)}
-        print(f"{name}: {s['hit']}/{s['total']} = {rate:.0f}%")
+    tmp_dir = tempfile.mkdtemp(prefix="pet_eval_chroma_")
+    try:
+        store, chunks = build_eval_store(tmp_dir)
+        print(f"评测向量库已重建：{len(chunks)} 个 chunk（临时目录，不污染 chroma_db）\n")
 
-    print("\n----- 未命中的问题（判断是问题写得怪，还是检索真有问题）-----")
-    for name, s in stats.items():
-        if s["miss"]:
-            print(f"[{name}]")
-            for q in s["miss"]:
-                print("  -", q)
+        vector_retriever = store.as_retriever(search_kwargs={"k": TOP_K})
+        bm25_retriever = BM25Retriever.from_documents(
+            chunks, k=TOP_K, preprocess_func=lambda t: jieba.lcut(t)
+        )
 
-    out = "retrieval_eval_result.json"
-    json.dump(result, open(out, "w", encoding="utf-8"), ensure_ascii=False, indent=2)
-    print(f"\n>>> 结果已存档到 {out}，这就是简历数字的实测口径")
-from langchain_classic.retrievers import EnsembleRetriever
+        results, misses = {}, {}
 
-def build_hybrid_w(w_bm25, w_vec, k=K):
-    bm25 = BM25Retriever.from_documents(_export_all_chunks(), k=k,
-                                        preprocess_func=lambda t: jieba.lcut(t))
-    vec = get_vectorstore().as_retriever(search_kwargs={"k": k})
-    return EnsembleRetriever(retrievers=[bm25, vec], weights=[w_bm25, w_vec])
+        for name, retriever in (("vector_only", vector_retriever), ("bm25_only", bm25_retriever)):
+            hits, miss = evaluate(retriever)
+            results[name] = {"hit": hits, "total": total, "rate": round(hits / total * 100, 1)}
+            misses[name] = miss
 
-print("\n===== 混合权重扫描 =====")
-for w in [(0.5, 0.5), (0.3, 0.7), (0.2, 0.8), (0.1, 0.9)]:
-    r = build_hybrid_w(*w)
-    hits = sum(1 for c in EVAL_SET
-               if any(c["expected_doc"] in str(d.metadata.get("title", ""))
-                      for d in r.invoke(c["question"])[:K]))
-    print(f"BM25:{w[0]} 向量:{w[1]} -> {hits}/{len(EVAL_SET)}")
+        for w_bm25, w_vec in WEIGHT_CONFIGS:
+            key = f"hybrid_{w_bm25}/{w_vec}"
+            retriever = build_hybrid_retriever(
+                chunks, store, k=TOP_K, weights=[w_bm25, w_vec]
+            )
+            hits, miss = evaluate(retriever)
+            results[key] = {"hit": hits, "total": total, "rate": round(hits / total * 100, 1)}
+            misses[key] = miss
+
+        # ---------- 打印 ----------
+        print("===== 检索方式对比 =====")
+        for name, r in results.items():
+            mark = "  ← 当前线上配置" if name == f"hybrid_{SELECTED_WEIGHTS[0]}/{SELECTED_WEIGHTS[1]}" else ""
+            print(f"  {name:<20} {r['hit']:>2}/{r['total']}  {r['rate']:>5.1f}%{mark}")
+
+        print("\n===== 未命中明细（判断是问题写得怪，还是检索真有问题）=====")
+        for name, miss in misses.items():
+            if miss:
+                print(f"  [{name}]")
+                for q in miss:
+                    print(f"    - {q}")
+
+        payload = {
+            "meta": {
+                "generated_at": datetime.now(timezone.utc).astimezone().isoformat(timespec="seconds"),
+                "eval_set_size": total,
+                "top_k": TOP_K,
+                "kb_source": os.path.relpath(KB_PATH, BASE_DIR).replace("\\", "/"),
+                "kb_chunks": len(chunks),
+                "weights_swept": [f"{a}/{b}" for a, b in WEIGHT_CONFIGS],
+                "weights_selected": f"{SELECTED_WEIGHTS[0]}/{SELECTED_WEIGHTS[1]}",
+                "reproducible": True,
+                "method": (
+                    "评测向量库每次从 knowledge_base/pet_shop_docs.jsonl 重建，"
+                    "不读取本地 chroma_db，因此任何人 clone 后可复现同一组数字"
+                ),
+                "hit_criterion": "Top-K 返回的 chunk 标题中，包含标注的 expected_doc 即算命中",
+            },
+            "results": results,
+            "misses": {k: v for k, v in misses.items() if v},
+        }
+        with open(OUT_PATH, "w", encoding="utf-8") as f:
+            json.dump(payload, f, ensure_ascii=False, indent=2)
+        print(f"\n>>> 结果已写入 {os.path.relpath(OUT_PATH, BASE_DIR)}")
+    finally:
+        shutil.rmtree(tmp_dir, ignore_errors=True)
 
 
 if __name__ == "__main__":

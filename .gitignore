@@ -11,6 +11,7 @@ env/
 *.egg-info/
 dist/
 build/
+.pytest_cache/
 
 # Node.js
 node_modules/
@@ -29,23 +30,30 @@ npm-debug.log*
 # 数据库和向量库
 *.db
 chroma_db/
+eval_chroma_tmp/
 
-# 配置文件（敏感信息）
+# 配置文件（含 API Key，禁止提交）
 config.json
 config.yaml
 .env
 .env.local
 
+# AI 编码助手产生的本地元数据（与项目无关）
+.learnings/
+.workbuddy/
+.rivet/
+.junie/
+.codebuddy/
+.meituan-catpaw/
+._build_react_docx/
+
 # 系统文件
 .DS_Store
 Thumbs.db
+desktop.ini
 
 # 临时文件
 *.tmp
 *.temp
 *.bak
 *.backup
-
-# 个人 react 知识点手册（与 demo 无关，不上传）
-React知识点手册.docx
-._build_react_docx/

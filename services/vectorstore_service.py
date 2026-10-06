@@ -56,7 +56,17 @@ def update_document_in_vectorstore(doc_id,title,content):
     add_document_to_vectorstore(doc_id,title,content)
     print(f"文档{doc_id}已经更新")
 
+# 混合检索权重 [BM25, 向量]
+# 由 run_retrieval_eval.py 的权重扫描实测确定（评测集 30 条 · Top-3 命中率）：
+#     BM25:0.5 向量:0.5 -> 28/30
+#     BM25:0.3 向量:0.7 -> 30/30   ← 采用
+# 详见 retrieval_eval_result.json（可用 `python run_retrieval_eval.py` 复现）
+HYBRID_WEIGHTS = [0.3, 0.7]
+
 _hybrid_retriever = None
+_hybrid_cache_key = None
+
+
 def _export_all_chunks():
     vectorstore = get_vectorstore()
     data = vectorstore._collection.get(include=["documents","metadatas"])
@@ -65,21 +75,31 @@ def _export_all_chunks():
         docs.append(Document(page_content=content,metadata= meta))
     return docs
 
-def get_hybrid_retriever(k:int=5):
-    global _hybrid_retriever
-    if _hybrid_retriever is not None:
-        return _hybrid_retriever
-    chunks = _export_all_chunks()
-    vectorstore = get_vectorstore()
+
+def build_hybrid_retriever(chunks, vectorstore, k: int = 5, weights=None):
+    """按指定权重构造混合检索器（不缓存，供评测脚本扫描不同权重）"""
     bm25 = BM25Retriever.from_documents(chunks,
                                         k=k,
                                         preprocess_func = lambda t:jieba.lcut(t),
     )
     vector_retriever = vectorstore.as_retriever(search_kwargs= {"k":k})
-    _hybrid_retriever = EnsembleRetriever(
+    return EnsembleRetriever(
         retrievers=[bm25,vector_retriever],
-        weights=[0.5,0.5]
+        weights=list(weights if weights is not None else HYBRID_WEIGHTS),
     )
+
+
+def get_hybrid_retriever(k:int=5, weights=None):
+    """混合检索器（带缓存）。缓存键包含 k 与权重，避免不同配置互相串味。"""
+    global _hybrid_retriever, _hybrid_cache_key
+    weights = list(weights if weights is not None else HYBRID_WEIGHTS)
+    cache_key = (k, tuple(weights))
+    if _hybrid_retriever is not None and _hybrid_cache_key == cache_key:
+        return _hybrid_retriever
+    _hybrid_retriever = build_hybrid_retriever(
+        _export_all_chunks(), get_vectorstore(), k=k, weights=weights
+    )
+    _hybrid_cache_key = cache_key
     return _hybrid_retriever
 def get_docs_with_scores(question: str, k: int = 3):
     # 定义函数：入参 question（问题文本）、k（返回几条，默认3）；返回 [(文档, 相似度分数), ...]
